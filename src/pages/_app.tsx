@@ -2,15 +2,16 @@ import "../styles/globals.css";
 import "antd/dist/antd.css";
 import "react-quill/dist/quill.snow.css";
 import type { AppProps } from "next/app";
+import { Provider } from "react-redux";
+import store from "../store";
 import Navbar from "../components/Navbar";
 import Header from "../components/Header";
 import AuthenticatedRoute from "../contexts/authenticatedRoute";
-import { AuthProvider } from "../contexts/auth";
 import Head from "next/head";
 
 function MyApp({ Component, pageProps }: AppProps) {
     return (
-        <>
+        <Provider store={store}>
             <Head>
                 <title>JUWAN ADMIN</title>
                 <meta
@@ -19,8 +20,7 @@ function MyApp({ Component, pageProps }: AppProps) {
                 />
                 <link rel="icon" href="/juwanfood-logo-short.png" />
             </Head>
-            <AuthProvider>
-                {/* <AuthenticatedRoute pathAfterFailure={"/login"}> */}
+            <AuthenticatedRoute pathAfterFailure={"/login"}>
                 <Navbar />
                 <div style={{ marginLeft: "70px" }}>
                     <Header />
@@ -35,9 +35,8 @@ function MyApp({ Component, pageProps }: AppProps) {
                         <Component {...pageProps} />
                     </div>
                 </div>
-                {/* </AuthenticatedRoute> */}
-            </AuthProvider>
-        </>
+            </AuthenticatedRoute>
+        </Provider>
     );
 }
 

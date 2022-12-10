@@ -21,10 +21,18 @@ import {
     PlusOutlined,
 } from "@ant-design/icons";
 import { ColumnsType } from "antd/es/table";
-import axiosClient from "../../utils/axiosClient";
-import { notiError, notiSuccess } from "../../utils/notification";
-import { Category, Product } from "../../interface";
 import TextArea from "antd/lib/input/TextArea";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import {
+    createProduct,
+    deleteProduct,
+    getAllProduct,
+    updateProduct,
+} from "../../store/slice/productSlice";
+import { getAllCategory } from "../../store/slice/categorySlice";
+import OptionSearch from "../../components/OptionSearch";
+import TitleSearch from "../../components/TitleSearch";
+import { Product } from "../../interface";
 
 const { Option } = Select;
 interface DataType {
@@ -35,42 +43,31 @@ interface DataType {
     description: string;
 }
 
-const Product = () => {
-    const [listData, setListData] = useState<Product[]>([] as Product[]);
-    const [listCategory, setListCategory] = useState<Category[]>(
-        [] as Category[]
+const ProductPage = () => {
+    const { listProduct, loading, loadingApi } = useAppSelector(
+        (state) => state.product
     );
-    console.log(listData);
+    const { listCategory } = useAppSelector((state) => state.category);
+    const dispatch = useAppDispatch();
+    const [listProductShow, setListProductShow] = useState<Product[]>([]);
 
-    const [loadingInit, setLoadingInit] = useState<boolean>(false);
-    const [loading, setLoading] = useState<boolean>(false);
+    const [reLoad, setReLoad] = useState<boolean>(false);
     const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
     const [isAddOrFix, setIsAddOrFix] = useState<boolean>(true);
     const [imgFix, setImgFix] = useState<string>("");
     const [form] = Form.useForm();
 
     useEffect(() => {
-        (async () => {
-            try {
-                setLoadingInit(true);
-                const resCategory = await axiosClient.post(
-                    "/api/admin/category",
-                    {
-                        _method: "get",
-                    }
-                );
-                setListCategory(resCategory.data as Category[]);
-                const resData = await axiosClient.post("/api/admin/product", {
-                    _method: "get",
-                });
-                setListData(resData.data as Product[]);
-            } catch (error) {
-                notiError("Lỗi!!!");
-            } finally {
-                setLoadingInit(false);
-            }
-        })();
-    }, []);
+        if (listCategory.length === 0) {
+            dispatch(getAllCategory());
+        }
+        dispatch(getAllProduct());
+    }, [reLoad]);
+
+    useEffect(() => {
+        setListProductShow(listProduct);
+    }, [listProduct]);
+
     const handleCancelModal = () => {
         setIsOpenModal(false);
     };
@@ -78,7 +75,7 @@ const Product = () => {
         form.resetFields();
         setIsAddOrFix(false);
         setIsOpenModal(true);
-        const product = listData.filter((category) => category.id === id)[0];
+        const product = listProduct.filter((product) => product.id === id)[0];
         setImgFix(product.thumb);
         form.setFieldsValue({
             name: product.name,
@@ -95,147 +92,66 @@ const Product = () => {
         });
     };
     const handleDelete = async (id: number) => {
-        try {
-            const resData = await axiosClient.post(`/api/admin/product/${id}`, {
-                _method: "delete",
-            });
-            setListData((state) =>
-                state.filter((category) => {
-                    return category.id !== id;
-                })
-            );
+        dispatch(deleteProduct(id));
+    };
 
-            notiSuccess("Xóa thành công.");
-        } catch (error) {
-            notiError("Xóa thất bại.");
+    const handleSearchTitle = (searchText: string) => {
+        if (!searchText) {
+            setListProductShow(listProduct);
+            return;
         }
+        const filteredEvents = listProductShow.filter(({ name }) => {
+            name = name.toLowerCase();
+            return name.includes(searchText);
+        });
+        setListProductShow(filteredEvents);
+    };
+
+    const handleSearchOption = (value: any) => {
+        if (!value) {
+            setListProductShow(listProduct);
+            return;
+        }
+        const filterValua = value ? value : "";
+        const filteredEvents = listProductShow.filter(
+            (product) => product.category_id === filterValua
+        );
+        setListProductShow(filteredEvents);
     };
 
     const onSubmitForm = async (values: any) => {
         console.log(values);
         // --------------------------Thêm bản ghi-------------------------------
         if (isAddOrFix === true) {
-            const { name, imageFile, description, category_id, options, sale } =
+            const { name, Image, description, category_id, options, sale } =
                 values;
-            const thumb = imageFile[0];
-            try {
-                setLoading(true);
-                const optionPut = {
-                    size: [...options],
-                };
-                let bodyFormData = new FormData();
-                bodyFormData.append("thumb", thumb.originFileObj);
-                bodyFormData.append("name", name);
-                bodyFormData.append("category_id", category_id);
-                bodyFormData.append("product_content", "1");
-                bodyFormData.append("has_option", "1");
-                bodyFormData.append("price_sale", "0");
-                bodyFormData.append("price", "0");
-                bodyFormData.append("description", "0");
-                bodyFormData.append("_method", "put");
-
-                const dataProduct = {
+            const imageFile = Image[0].originFileObj;
+            dispatch(
+                createProduct({
                     name,
-                    sale,
+                    imageFile,
                     description,
                     category_id,
-                    has_option: 1,
-                    price: 0,
-                    price_sale: 0,
-                    product_content: "1",
-                    options: optionPut,
-                };
-                const resData = await axiosClient.post(
-                    "/api/admin/product",
-                    dataProduct,
-                    {
-                        headers: {
-                            "Content-Type": "multipart/form-data",
-                        },
-                    }
-                );
-                const resData2 = await axiosClient.post(
-                    `/api/admin/product/${resData.data.id}`,
-                    bodyFormData,
-                    {
-                        headers: {
-                            "Content-Type": "multipart/form-data",
-                        },
-                    }
-                );
-
-                notiSuccess("Thêm thành công!!!");
-            } catch (error) {
-                notiError("lỗi!!!");
-            } finally {
-                setLoading(false);
-            }
+                    options,
+                    sale,
+                })
+            );
         } else {
             // --------------------------Sửa bản ghi------------------------------
-            const {
-                name,
-                imageFile,
-                id,
-                description,
-                category_id,
-                options,
-                sale,
-            } = values;
-
-            try {
-                setLoading(true);
-                let bodyFormData = new FormData();
-                const optionPut = {
-                    size: [...options],
-                };
-                if (imageFile) {
-                    const thumb = imageFile[0];
-                    bodyFormData.append("thumb", thumb.originFileObj);
-                }
-                bodyFormData.append("name", name);
-                bodyFormData.append("category_id", category_id);
-                bodyFormData.append("product_content", "1");
-                bodyFormData.append("has_option", "1");
-                bodyFormData.append("price_sale", "0");
-                bodyFormData.append("price", "0");
-                bodyFormData.append("description", "0");
-                bodyFormData.append("_method", "put");
-
-                const resData = await axiosClient.put(
-                    `/api/admin/product/${id}`,
-                    bodyFormData,
-                    {
-                        headers: {
-                            "Content-Type": "multipart/form-data",
-                        },
-                    }
-                );
-                const dataFix = {
+            const { id, name, Image, description, category_id, options, sale } =
+                values;
+            const imageFile = Image ? Image[0].originFileObj : null;
+            dispatch(
+                updateProduct({
+                    id,
                     name,
-                    sale,
+                    imageFile,
                     description,
                     category_id,
-                    has_option: 1,
-                    price: 0,
-                    price_sale: 0,
-                    product_content: "1",
-                    options: optionPut,
-                };
-                const resData2 = await axiosClient.put(
-                    `/api/admin/product/${id}`,
-                    dataFix,
-                    {
-                        headers: {
-                            "Content-Type": "multipart/form-data",
-                        },
-                    }
-                );
-                notiSuccess("Sửa thành công!!!");
-            } catch (error) {
-                notiError("lỗi!!!");
-            } finally {
-                setLoading(false);
-            }
+                    options,
+                    sale,
+                })
+            );
         }
     };
     const onSubmitFormFailed = (errorInfo: any) => {
@@ -325,21 +241,50 @@ const Product = () => {
     return (
         <div className="w-full">
             <div className="py-[10px]">
-                <h1>Quản lý danh sách Product</h1>
-                <Button
-                    type="primary"
-                    size="large"
-                    onClick={() => {
-                        setIsOpenModal(true);
-                        setIsAddOrFix(true);
-                        form.resetFields();
-                    }}
-                >
-                    <div className="flex justify-center items-center gap-2">
-                        <PlusCircleFilled />
-                        Thêm bản ghi
-                    </div>
-                </Button>
+                <h1>Quản lý danh sách Sản phẩm</h1>
+                <div>
+                    <Button
+                        type="text"
+                        size="large"
+                        onClick={() => {
+                            setReLoad((state) => !state);
+                        }}
+                    >
+                        Reload
+                    </Button>
+                    <Button
+                        type="primary"
+                        size="large"
+                        onClick={() => {
+                            setIsOpenModal(true);
+                            setIsAddOrFix(true);
+                            form.resetFields();
+                        }}
+                    >
+                        <div className="flex justify-center items-center gap-2">
+                            <PlusCircleFilled />
+                            Thêm bản ghi
+                        </div>
+                    </Button>
+                </div>
+            </div>
+
+            {/* --------------------------------------------Filter--------------------------------------------------- */}
+            <div className="w-full flex justify-end py-[10px]">
+                <OptionSearch
+                    placeholder="Loại"
+                    optionSearch={handleSearchOption}
+                    listOption={listCategory.map((cate) => {
+                        return {
+                            value: cate.id,
+                            title: cate.name,
+                        };
+                    })}
+                />
+                <TitleSearch
+                    placeholder="Search Name"
+                    userSearch={handleSearchTitle}
+                />
             </div>
 
             {/* --------------------------Modal------------------------------------ */}
@@ -402,7 +347,7 @@ const Product = () => {
                         <TextArea />
                     </Form.Item>
                     <Form.Item
-                        name="imageFile"
+                        name="Image"
                         label="Thumb"
                         valuePropName="image"
                         rules={[
@@ -414,27 +359,26 @@ const Product = () => {
                         getValueFromEvent={normUpdateFile}
                     >
                         <Upload
-                            listType={"picture-card"}
                             maxCount={1}
+                            listType="picture"
                             multiple={false}
-                            showUploadList={{
-                                showPreviewIcon: false,
-                                showDownloadIcon: false,
-                            }}
                             beforeUpload={() => {
                                 return false;
                             }}
                             withCredentials={false}
+                            showUploadList={true}
                             accept="image/png, image/jpeg"
                         >
-                            <Button icon={<UploadOutlined />}></Button>
+                            <Button icon={<UploadOutlined />}>
+                                Chọn hình ảnh
+                            </Button>
                         </Upload>
                     </Form.Item>
                     {!isAddOrFix && (
                         <div className="w-full flex justify-center">
                             {/*  eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                                className="max-w-[200px] max-h-[300px] object-cover p-[10px]"
+                                className="max-w-[200px] p-[10px]"
                                 src={`${process.env.HOST_NAME_API}/${imgFix}`}
                                 alt="img"
                             />
@@ -564,7 +508,7 @@ const Product = () => {
                         <Button
                             type="primary"
                             htmlType="submit"
-                            loading={loading}
+                            loading={loadingApi}
                         >
                             {`${isAddOrFix ? "Thêm mới" : "Sửa"}`}
                         </Button>
@@ -576,7 +520,7 @@ const Product = () => {
 
             <Table
                 columns={columns}
-                dataSource={listData}
+                dataSource={listProductShow}
                 pagination={{
                     defaultPageSize: 8,
                     showSizeChanger: true,
@@ -584,11 +528,11 @@ const Product = () => {
                 }}
                 tableLayout={"auto"}
                 scroll={{ x: 900 }}
-                loading={loadingInit}
+                loading={loading}
                 rowKey="id"
             />
         </div>
     );
 };
 
-export default Product;
+export default ProductPage;

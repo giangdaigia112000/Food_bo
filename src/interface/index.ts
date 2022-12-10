@@ -76,6 +76,7 @@ export interface Order {
     message: string;
     created_at: string;
     updated_at: string;
+    code: string;
     order_items: [
         {
             id: number;
@@ -111,4 +112,26 @@ export interface Slider {
     image: string;
     created_at: string;
     updated_at: string;
+}
+
+export interface Voucher {
+    id: number;
+    code: string;
+    discount: number;
+    type: string;
+    start: string;
+    end: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface Chart {
+    total: object;
+    shop: {
+        id: number;
+        address: string;
+        created_at: string;
+        updated_at: string;
+        month: number[];
+    }[];
 }

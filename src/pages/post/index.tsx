@@ -8,6 +8,7 @@ import {
     Table,
     Upload,
 } from "antd";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import {
     EditFilled,
@@ -16,11 +17,20 @@ import {
     UploadOutlined,
 } from "@ant-design/icons";
 import { ColumnsType } from "antd/es/table";
-import axiosClient from "../../utils/axiosClient";
-import { notiError, notiSuccess } from "../../utils/notification";
-import { Blog, Category } from "../../interface";
 import TextArea from "antd/lib/input/TextArea";
-import ReactQuill from "react-quill";
+
+import "react-quill/dist/quill.snow.css";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import {
+    createBlog,
+    deleteBlog,
+    getAllBlog,
+    updateBlog,
+} from "../../store/slice/blogSlice";
+import OptionSearch from "../../components/OptionSearch";
+import TitleSearch from "../../components/TitleSearch";
+import { Blog } from "../../interface";
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 
 const { Option } = Select;
 const modules = {
@@ -92,30 +102,39 @@ interface DataType {
     type: number;
 }
 
-const Blog = () => {
-    const [listData, setListData] = useState<Blog[]>([] as Blog[]);
-    const [loadingInit, setLoadingInit] = useState<boolean>(false);
-    const [loading, setLoading] = useState<boolean>(false);
+const listOption = [
+    {
+        value: 0,
+        name: "Bài viết blog",
+    },
+    {
+        value: 1,
+        name: "Khuyễn mãi",
+    },
+];
+const Post = () => {
+    const { listBlog, loading, loadingApi } = useAppSelector(
+        (state) => state.blog
+    );
+    console.log(listBlog);
+
+    const dispatch = useAppDispatch();
+
+    const [listBlogShow, setListBlogShow] = useState<Blog[]>([]);
+
+    const [reLoad, setReLoad] = useState<boolean>(false);
     const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
     const [isAddOrFix, setIsAddOrFix] = useState<boolean>(true);
     const [imgFix, setImgFix] = useState<string>("");
     const [form] = Form.useForm();
+    useEffect(() => {
+        dispatch(getAllBlog());
+    }, [reLoad]);
 
     useEffect(() => {
-        (async () => {
-            setLoadingInit(true);
-            try {
-                const resData = await axiosClient.post("/api/admin/blog", {
-                    _method: "get",
-                });
-                setListData(resData.data as Blog[]);
-            } catch (error) {
-                notiError("Lỗi!!!");
-            } finally {
-                setLoadingInit(false);
-            }
-        })();
-    }, []);
+        setListBlogShow(listBlog);
+    }, [listBlog]);
+
     const handleCancelModal = () => {
         setIsOpenModal(false);
     };
@@ -123,29 +142,44 @@ const Blog = () => {
         form.resetFields();
         setIsAddOrFix(false);
         setIsOpenModal(true);
-        const blog = listData.filter((category) => category.id === id)[0];
+        const blog = listBlog.filter((blog) => blog.id === id)[0];
         setImgFix(blog.thumb);
         form.setFieldsValue({
             title: blog.title,
             desc: blog.desc,
             id: id,
+            content: blog.content,
+            type: blog.type,
         });
     };
     const handleDelete = async (id: number) => {
-        try {
-            const resData = await axiosClient.post(`/api/admin/blog/${id}`, {
-                _method: "delete",
-            });
-            setListData((state) =>
-                state.filter((category) => {
-                    return category.id !== id;
-                })
-            );
+        dispatch(deleteBlog(id));
+    };
 
-            notiSuccess("Xóa thành công.");
-        } catch (error) {
-            notiError("Xóa thất bại.");
+    const handleSearchTitle = (searchText: string) => {
+        if (!searchText) {
+            setListBlogShow(listBlog);
+            return;
         }
+        const filteredEvents = listBlogShow.filter(({ title }) => {
+            title = title.toLowerCase();
+            return title.includes(searchText);
+        });
+        setListBlogShow(filteredEvents);
+    };
+
+    const handleSearchOption = (value: any) => {
+        if (!value && value !== 0) {
+            setListBlogShow(listBlog);
+            return;
+        }
+        const filterValua = value ? value : "";
+        const filteredEvents = listBlogShow.filter(
+            (blog) => blog.type === filterValua
+        );
+        console.log(filterValua);
+
+        setListBlogShow(filteredEvents);
     };
 
     const onSubmitForm = async (values: any) => {
@@ -153,63 +187,32 @@ const Blog = () => {
 
         if (isAddOrFix === true) {
             //  -----------------------Đây là thêm mới --------------------------------
-            const { name, imageFile } = values;
-            const thumb = imageFile[0];
-            try {
-                setLoading(true);
-                let bodyFormData = new FormData();
-                bodyFormData.append("thumb", thumb.originFileObj);
-                bodyFormData.append("name", name);
-                const resData = await axiosClient.post(
-                    "/api/admin/blog",
-                    bodyFormData,
-                    {
-                        headers: {
-                            accept: "multipart/form-data",
-                        },
-                    }
-                );
-                notiSuccess("Thêm thành công!!!");
-            } catch (error) {
-                notiError("lỗi!!!");
-            } finally {
-                setLoading(false);
-            }
+            const { title, Image, desc, type, content } = values;
+            const imageFile = Image[0].originFileObj;
+
+            dispatch(
+                createBlog({
+                    title,
+                    imageFile,
+                    desc,
+                    type,
+                    content,
+                })
+            );
         } else {
             //  -----------------------Đây là sửa --------------------------------
-            const { name, imageFile, id } = values;
-            try {
-                setLoading(true);
-                let bodyFormData = new FormData();
-                if (imageFile) {
-                    const thumb = imageFile[0];
-                    bodyFormData.append("thumb", thumb.originFileObj);
-                }
-                bodyFormData.append("name", name);
-                bodyFormData.append("_method", "put");
-                const resData = await axiosClient.post(
-                    `/api/admin/blog/${id}`,
-                    bodyFormData,
-                    {
-                        headers: {
-                            accept: "multipart/form-data",
-                        },
-                    }
-                );
-                setListData((state) =>
-                    state.map((cate) => {
-                        if (cate.id === id) {
-                            cate = resData.data;
-                        }
-                        return cate;
-                    })
-                );
-                notiSuccess("Sửa thành công!!!");
-            } catch (error) {
-                notiError("lỗi!!!");
-            } finally {
-                setLoading(false);
-            }
+            const { title, Image, id, desc, type, content } = values;
+            const imageFile = Image ? Image[0].originFileObj : null;
+            dispatch(
+                updateBlog({
+                    id,
+                    title,
+                    imageFile,
+                    desc,
+                    type,
+                    content,
+                })
+            );
         }
     };
     const onSubmitFormFailed = (errorInfo: any) => {
@@ -289,20 +292,49 @@ const Blog = () => {
         <div className="w-full">
             <div className="py-[10px]">
                 <h1>Quản lý danh sách Blog và Khuyến mãi</h1>
-                <Button
-                    type="primary"
-                    size="large"
-                    onClick={() => {
-                        setIsOpenModal(true);
-                        setIsAddOrFix(true);
-                        form.resetFields();
-                    }}
-                >
-                    <div className="flex justify-center items-center gap-2">
-                        <PlusCircleFilled />
-                        Thêm bản ghi
-                    </div>
-                </Button>
+                <div>
+                    <Button
+                        type="text"
+                        size="large"
+                        onClick={() => {
+                            setReLoad((state) => !state);
+                        }}
+                    >
+                        ReLoad
+                    </Button>
+                    <Button
+                        type="primary"
+                        size="large"
+                        onClick={() => {
+                            setIsOpenModal(true);
+                            setIsAddOrFix(true);
+                            form.resetFields();
+                        }}
+                    >
+                        <div className="flex justify-center items-center gap-2">
+                            <PlusCircleFilled />
+                            Thêm bản ghi
+                        </div>
+                    </Button>
+                </div>
+            </div>
+
+            {/* --------------------------------------------Filter--------------------------------------------------- */}
+            <div className="w-full flex justify-end py-[10px]">
+                <OptionSearch
+                    placeholder="Loại"
+                    optionSearch={handleSearchOption}
+                    listOption={listOption.map((op) => {
+                        return {
+                            value: op.value,
+                            title: op.name,
+                        };
+                    })}
+                />
+                <TitleSearch
+                    placeholder="Search Name"
+                    userSearch={handleSearchTitle}
+                />
             </div>
 
             {/* --------------------------------------------Modal--------------------------------------------------- */}
@@ -383,7 +415,7 @@ const Blog = () => {
                         </Select>
                     </Form.Item>
                     <Form.Item
-                        name="imageFile"
+                        name="Image"
                         label="Thumb"
                         valuePropName="image"
                         rules={[
@@ -395,20 +427,19 @@ const Blog = () => {
                         getValueFromEvent={normUpdateFile}
                     >
                         <Upload
-                            listType={"picture-card"}
                             maxCount={1}
+                            listType="picture"
                             multiple={false}
-                            showUploadList={{
-                                showPreviewIcon: false,
-                                showDownloadIcon: false,
-                            }}
                             beforeUpload={() => {
                                 return false;
                             }}
                             withCredentials={false}
+                            showUploadList={true}
                             accept="image/png, image/jpeg"
                         >
-                            <Button icon={<UploadOutlined />}></Button>
+                            <Button icon={<UploadOutlined />}>
+                                Chọn hình ảnh
+                            </Button>
                         </Upload>
                     </Form.Item>
                     {!isAddOrFix && (
@@ -434,7 +465,6 @@ const Blog = () => {
                     >
                         <ReactQuill
                             placeholder="Nhập nội dung bài viết"
-                            preserveWhitespace={true}
                             modules={modules}
                             formats={formats}
                         />
@@ -443,7 +473,7 @@ const Blog = () => {
                         <Button
                             type="primary"
                             htmlType="submit"
-                            loading={loading}
+                            loading={loadingApi}
                         >
                             {`${isAddOrFix ? "Thêm mới" : "Sửa"}`}
                         </Button>
@@ -455,7 +485,7 @@ const Blog = () => {
 
             <Table
                 columns={columns}
-                dataSource={listData}
+                dataSource={listBlogShow}
                 pagination={{
                     defaultPageSize: 8,
                     showSizeChanger: true,
@@ -463,11 +493,11 @@ const Blog = () => {
                 }}
                 tableLayout={"auto"}
                 scroll={{ x: 900 }}
-                loading={loadingInit}
+                loading={loading}
                 rowKey="id"
             />
         </div>
     );
 };
 
-export default Blog;
+export default Post;

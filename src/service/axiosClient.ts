@@ -14,7 +14,7 @@ const axiosClient = axios.create({
 });
 
 axiosClient.interceptors.request.use(async (config: AxiosRequestConfig) => {
-    const token = getStoreLocal("id") as string;
+    const token = getStoreLocal("token") as string;
     config.headers = {
         Authorization: ` Bearer ${token}`,
     };

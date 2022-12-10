@@ -1,49 +1,69 @@
-import { Button, Form, Input, Modal, Popconfirm, Table, Upload } from "antd";
-import { useEffect, useState } from "react";
 import {
-    EditFilled,
-    DeleteFilled,
-    PlusCircleFilled,
-    UploadOutlined,
-} from "@ant-design/icons";
+    Button,
+    Form,
+    Input,
+    Modal,
+    Popconfirm,
+    Select,
+    Table,
+    Upload,
+} from "antd";
+import { useEffect, useState } from "react";
+import { EditFilled, DeleteFilled, PlusCircleFilled } from "@ant-design/icons";
 import { ColumnsType } from "antd/es/table";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
-    createCategory,
-    deleteCategory,
-    getAllCategory,
-    updateCategory,
-} from "../../store/slice/categorySlice";
+    createUser,
+    deleteUser,
+    getAllUser,
+} from "../../store/slice/userSlice";
+import OptionSearch from "../../components/OptionSearch";
 import TitleSearch from "../../components/TitleSearch";
-import { Category as CategoryInterface } from "../../interface";
-
+import { User as UserInterface } from "../../interface";
+const { Option } = Select;
 interface DataType {
     id: number;
     name: string;
-    img: string;
+    email: string;
 }
 
-const Category = () => {
-    const { listCategory, loading, loadingApi } = useAppSelector(
-        (state) => state.category
+const listRole = [
+    {
+        value: 1,
+        name: "Khách",
+    },
+    {
+        value: 2,
+        name: "Nhân viên",
+    },
+    {
+        value: 3,
+        name: "Quản trị viên",
+    },
+    {
+        value: 4,
+        name: "Super Admin",
+    },
+];
+const User = () => {
+    const { listUser, loading, loadingApi } = useAppSelector(
+        (state) => state.user
     );
     const dispatch = useAppDispatch();
-    const [listCategoryShow, setListCategoryShow] = useState<
-        CategoryInterface[]
-    >([]);
+
+    const [listUserShow, setListUserShow] = useState<UserInterface[]>([]);
     const [reLoad, setReLoad] = useState<boolean>(false);
     const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
     const [isAddOrFix, setIsAddOrFix] = useState<boolean>(true);
-    const [imgFix, setImgFix] = useState<string>("");
     const [form] = Form.useForm();
 
     useEffect(() => {
-        dispatch(getAllCategory());
+        dispatch(getAllUser());
     }, [reLoad]);
 
     useEffect(() => {
-        setListCategoryShow(listCategory);
-    }, [listCategory]);
+        setListUserShow(listUser);
+    }, [listUser]);
 
     const handleCancelModal = () => {
         setIsOpenModal(false);
@@ -52,42 +72,51 @@ const Category = () => {
         form.resetFields();
         setIsAddOrFix(false);
         setIsOpenModal(true);
-        const category = listCategory.filter(
-            (category) => category.id === id
-        )[0];
-        setImgFix(category.img);
+        const user = listUser.filter((user) => user.id === id)[0];
         form.setFieldsValue({
-            name: category.name,
+            name: user.name,
+            email: user.email,
+            role: user.role,
             id: id,
         });
     };
     const handleDelete = async (id: number) => {
-        dispatch(deleteCategory(id));
+        dispatch(deleteUser(id));
     };
 
     const handleSearchTitle = (searchText: string) => {
         if (!searchText) {
-            setListCategoryShow(listCategory);
+            setListUserShow(listUser);
             return;
         }
-        const filteredEvents = listCategoryShow.filter(({ name }) => {
-            name = name.toLowerCase();
-            return name.includes(searchText);
+        const filteredEvents = listUserShow.filter(({ email }) => {
+            email = email.toLowerCase();
+            return email.includes(searchText);
         });
-        setListCategoryShow(filteredEvents);
+        setListUserShow(filteredEvents);
+    };
+
+    const handleSearchOption = (value: any) => {
+        if (!value) {
+            setListUserShow(listUser);
+            return;
+        }
+        const filterValua = value ? value : "";
+        const filteredEvents = listUserShow.filter(
+            (user) => user.role === filterValua
+        );
+        setListUserShow(filteredEvents);
     };
 
     const onSubmitForm = async (values: any) => {
         if (isAddOrFix === true) {
             //  -----------------------Đây là thêm mới --------------------------------
-            const { name, Image } = values;
-            const imageFile = Image[0].originFileObj;
-            dispatch(createCategory({ name, imageFile }));
+            const { name, email, role } = values;
+            dispatch(createUser({ name, email, role }));
         } else {
             //  -----------------------Đây là sửa --------------------------------
-            const { name, Image, id } = values;
-            const imageFile = Image ? Image[0].originFileObj : null;
-            dispatch(updateCategory({ id, name, imageFile }));
+            const { name, email, role, id } = values;
+            // dispatch(updateShop({ id, address }));
         }
     };
     const onSubmitFormFailed = (errorInfo: any) => {
@@ -132,27 +161,27 @@ const Category = () => {
             title: "Tên",
             dataIndex: "name",
             key: "name",
-            width: 500,
         },
         {
-            title: "Hình biểu diễn",
-            dataIndex: "img",
-            width: 200,
-            render: (img: string) => (
-                <div className="">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                        src={`${process.env.HOST_NAME_API}/${img}`}
-                        alt="icon"
-                    />
-                </div>
+            title: "Email",
+            dataIndex: "email",
+            key: "email",
+        },
+        {
+            title: "Chức vụ",
+            dataIndex: "role",
+            key: "role",
+            render: (role: number) => (
+                <span>
+                    {listRole.filter((rol) => rol.value === role)[0].name}
+                </span>
             ),
         },
     ];
     return (
         <div className="w-full">
             <div className="py-[10px]">
-                <h1>Quản lý danh sách Category</h1>
+                <h1>Quản lý danh sách User</h1>
                 <div>
                     <Button
                         type="text"
@@ -179,19 +208,27 @@ const Category = () => {
                     </Button>
                 </div>
             </div>
-
             {/* --------------------------------------------Filter--------------------------------------------------- */}
             <div className="w-full flex justify-end py-[10px]">
+                <OptionSearch
+                    placeholder="Chức vụ"
+                    optionSearch={handleSearchOption}
+                    listOption={listRole.map((role) => {
+                        return {
+                            value: role.value,
+                            title: role.name,
+                        };
+                    })}
+                />
                 <TitleSearch
-                    placeholder="Search Title"
+                    placeholder="Search Email"
                     userSearch={handleSearchTitle}
                 />
             </div>
-
             {/* --------------------------------------------Modal--------------------------------------------------- */}
 
             <Modal
-                title={`${isAddOrFix ? "Thêm mới Category" : "Sửa Category"}`}
+                title={`${isAddOrFix ? "Thêm mới Shop" : "Sửa Shop"}`}
                 visible={isOpenModal}
                 onCancel={handleCancelModal}
                 footer={[
@@ -225,7 +262,7 @@ const Category = () => {
                         </Form.Item>
                     )}
                     <Form.Item
-                        label="Tên category"
+                        label="Họ tên"
                         name="name"
                         rules={[
                             {
@@ -237,44 +274,32 @@ const Category = () => {
                         <Input />
                     </Form.Item>
                     <Form.Item
-                        name="Image"
-                        label="Thumb"
-                        valuePropName="image"
+                        label="Email"
+                        name="email"
                         rules={[
                             {
-                                required: isAddOrFix,
+                                required: true,
                                 message: "Không bỏ trống!!!",
                             },
                         ]}
-                        getValueFromEvent={normUpdateFile}
                     >
-                        <Upload
-                            maxCount={1}
-                            listType="picture"
-                            multiple={false}
-                            beforeUpload={() => {
-                                return false;
-                            }}
-                            withCredentials={false}
-                            showUploadList={true}
-                            accept="image/png, image/jpeg"
-                        >
-                            <Button icon={<UploadOutlined />}>
-                                Chọn hình ảnh
-                            </Button>
-                        </Upload>
+                        <Input />
                     </Form.Item>
-                    {!isAddOrFix && (
-                        <div className="w-full flex justify-center">
-                            {/*  eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                className="max-w-[200px] p-[10px]"
-                                src={`${process.env.HOST_NAME_API}/${imgFix}`}
-                                alt="img"
-                            />
-                        </div>
-                    )}
-
+                    <Form.Item
+                        name="role"
+                        label="Chức vụ"
+                        rules={[
+                            { required: true, message: "Không bỏ trống!!!" },
+                        ]}
+                    >
+                        <Select allowClear>
+                            {listRole.map((role) => (
+                                <Option key={role.value} value={role.value}>
+                                    {role.name}
+                                </Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
                     <Form.Item wrapperCol={{ offset: 8, span: 16 }}>
                         <Button
                             type="primary"
@@ -291,7 +316,7 @@ const Category = () => {
 
             <Table
                 columns={columns}
-                dataSource={listCategoryShow}
+                dataSource={listUserShow}
                 pagination={{
                     defaultPageSize: 8,
                     showSizeChanger: true,
@@ -306,4 +331,4 @@ const Category = () => {
     );
 };
 
-export default Category;
+export default User;

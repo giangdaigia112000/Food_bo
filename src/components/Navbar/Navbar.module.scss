@@ -79,16 +79,15 @@
                         display: none;
                     }
                     &:hover {
-                        background-color: #f4f5f5;
+                        background-color: #ff3c0048;
                     }
                 }
                 .active {
                     color: #fff;
                     .nav-icon {
-                        background-color: #2c3e48;
+                        background-color: #ff3c0048;
                     }
                     &:hover {
-                        background-color: #2c3e48;
                     }
                 }
             }
@@ -125,7 +124,7 @@
                         }
                     }
                     .active {
-                        background-color: #2c3e48;
+                        background-color: #ff3c00ab;
                     }
                 }
             }

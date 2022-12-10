@@ -1,4 +1,15 @@
-import { Button, Form, Input, Modal, Popconfirm, Table, Upload } from "antd";
+import {
+    Button,
+    DatePicker,
+    Form,
+    Input,
+    InputNumber,
+    Modal,
+    Popconfirm,
+    Select,
+    Table,
+    Upload,
+} from "antd";
 import { useEffect, useState } from "react";
 import {
     EditFilled,
@@ -9,99 +20,120 @@ import {
 import { ColumnsType } from "antd/es/table";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
-    createCategory,
-    deleteCategory,
-    getAllCategory,
-    updateCategory,
-} from "../../store/slice/categorySlice";
+    createVoucher,
+    deleteVoucher,
+    getAllVoucher,
+    updateVoucher,
+} from "../../store/slice/voucherSlice";
 import TitleSearch from "../../components/TitleSearch";
-import { Category as CategoryInterface } from "../../interface";
+import { Voucher } from "../../interface";
+import moment from "moment";
+
+const { Option } = Select;
 
 interface DataType {
     id: number;
-    name: string;
-    img: string;
+    code: string;
+    discount: number;
+    type: string;
+    start: string;
+    end: string;
 }
 
-const Category = () => {
-    const { listCategory, loading, loadingApi } = useAppSelector(
-        (state) => state.category
+const listType = [
+    { value: "%", name: "%" },
+    { value: "vnd", name: "vnd" },
+];
+const VoucherPage = () => {
+    const { listVoucher, loading, loadingApi } = useAppSelector(
+        (state) => state.voucher
     );
     const dispatch = useAppDispatch();
-    const [listCategoryShow, setListCategoryShow] = useState<
-        CategoryInterface[]
-    >([]);
+    const [listVoucherShow, setListVoucherShow] = useState<Voucher[]>([]);
+    const [typeSelect, setTypeSelect] = useState<string | null>(null);
+
     const [reLoad, setReLoad] = useState<boolean>(false);
     const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
     const [isAddOrFix, setIsAddOrFix] = useState<boolean>(true);
-    const [imgFix, setImgFix] = useState<string>("");
     const [form] = Form.useForm();
 
     useEffect(() => {
-        dispatch(getAllCategory());
+        dispatch(getAllVoucher());
     }, [reLoad]);
 
     useEffect(() => {
-        setListCategoryShow(listCategory);
-    }, [listCategory]);
+        setListVoucherShow(listVoucher);
+    }, [listVoucher]);
 
     const handleCancelModal = () => {
         setIsOpenModal(false);
     };
+
     const handleRepair = (id: number) => {
         form.resetFields();
         setIsAddOrFix(false);
         setIsOpenModal(true);
-        const category = listCategory.filter(
-            (category) => category.id === id
-        )[0];
-        setImgFix(category.img);
+        const voucher = listVoucher.filter((voucher) => voucher.id === id)[0];
         form.setFieldsValue({
-            name: category.name,
+            code: voucher.code,
+            discount: voucher.discount,
+            type: voucher.type,
+            start: moment(voucher.start),
+            end: moment(voucher.end),
             id: id,
         });
     };
     const handleDelete = async (id: number) => {
-        dispatch(deleteCategory(id));
+        dispatch(deleteVoucher(id));
     };
 
     const handleSearchTitle = (searchText: string) => {
         if (!searchText) {
-            setListCategoryShow(listCategory);
+            setListVoucherShow(listVoucher);
             return;
         }
-        const filteredEvents = listCategoryShow.filter(({ name }) => {
-            name = name.toLowerCase();
-            return name.includes(searchText);
+        const filteredEvents = listVoucherShow.filter(({ code }) => {
+            code = code.toLowerCase();
+            return code.includes(searchText);
         });
-        setListCategoryShow(filteredEvents);
+        setListVoucherShow(filteredEvents);
     };
 
     const onSubmitForm = async (values: any) => {
+        console.log(moment(values.start).format("YYYY-MM-DD"));
+
         if (isAddOrFix === true) {
             //  -----------------------Đây là thêm mới --------------------------------
-            const { name, Image } = values;
-            const imageFile = Image[0].originFileObj;
-            dispatch(createCategory({ name, imageFile }));
+            const { code, discount, type, start, end } = values;
+            dispatch(
+                createVoucher({
+                    code,
+                    discount,
+                    type,
+                    start: moment(values.start).format("YYYY-MM-DD"),
+                    end: moment(values.end).format("YYYY-MM-DD"),
+                })
+            );
         } else {
             //  -----------------------Đây là sửa --------------------------------
-            const { name, Image, id } = values;
-            const imageFile = Image ? Image[0].originFileObj : null;
-            dispatch(updateCategory({ id, name, imageFile }));
+            const { id, code, discount, type, start, end } = values;
+
+            dispatch(
+                updateVoucher({
+                    id,
+                    code,
+                    discount,
+                    type,
+                    start: moment(values.start).format("YYYY-MM-DD"),
+                    end: moment(values.end).format("YYYY-MM-DD"),
+                })
+            );
         }
     };
     const onSubmitFormFailed = (errorInfo: any) => {
         console.log("Failed:", errorInfo);
     };
 
-    const normUpdateFile = (e: any) => {
-        console.log(e);
-        if (Array.isArray(e)) {
-            console.log(e);
-            return e;
-        }
-        return e?.fileList;
-    };
     const columns: ColumnsType<DataType> = [
         {
             title: "Hành động",
@@ -129,30 +161,36 @@ const Category = () => {
             ),
         },
         {
-            title: "Tên",
-            dataIndex: "name",
+            title: "Mã giảm giá",
+            dataIndex: "code",
             key: "name",
             width: 500,
         },
         {
-            title: "Hình biểu diễn",
-            dataIndex: "img",
-            width: 200,
-            render: (img: string) => (
-                <div className="">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                        src={`${process.env.HOST_NAME_API}/${img}`}
-                        alt="icon"
-                    />
-                </div>
-            ),
+            title: "Discount",
+            dataIndex: "discount",
+            key: "discount",
+        },
+        {
+            title: "Loại",
+            dataIndex: "type",
+            key: "type",
+        },
+        {
+            title: "Ngày bắt đầu",
+            dataIndex: "start",
+            key: "start",
+        },
+        {
+            title: "Ngày kết thúc",
+            dataIndex: "end",
+            key: "end",
         },
     ];
     return (
         <div className="w-full">
             <div className="py-[10px]">
-                <h1>Quản lý danh sách Category</h1>
+                <h1>Quản lý danh sách Khuyến mãi</h1>
                 <div>
                     <Button
                         type="text"
@@ -161,7 +199,7 @@ const Category = () => {
                             setReLoad((state) => !state);
                         }}
                     >
-                        ReLoad
+                        Reload
                     </Button>
                     <Button
                         type="primary"
@@ -187,11 +225,10 @@ const Category = () => {
                     userSearch={handleSearchTitle}
                 />
             </div>
-
             {/* --------------------------------------------Modal--------------------------------------------------- */}
 
             <Modal
-                title={`${isAddOrFix ? "Thêm mới Category" : "Sửa Category"}`}
+                title={`${isAddOrFix ? "Thêm mới Slide" : "Sửa Slide"}`}
                 visible={isOpenModal}
                 onCancel={handleCancelModal}
                 footer={[
@@ -225,8 +262,8 @@ const Category = () => {
                         </Form.Item>
                     )}
                     <Form.Item
-                        label="Tên category"
-                        name="name"
+                        label="Mã giảm giá"
+                        name="code"
                         rules={[
                             {
                                 required: true,
@@ -237,43 +274,67 @@ const Category = () => {
                         <Input />
                     </Form.Item>
                     <Form.Item
-                        name="Image"
-                        label="Thumb"
-                        valuePropName="image"
+                        label="Loại giảm giá"
+                        name="type"
                         rules={[
                             {
-                                required: isAddOrFix,
+                                required: true,
                                 message: "Không bỏ trống!!!",
                             },
                         ]}
-                        getValueFromEvent={normUpdateFile}
                     >
-                        <Upload
-                            maxCount={1}
-                            listType="picture"
-                            multiple={false}
-                            beforeUpload={() => {
-                                return false;
+                        <Select
+                            allowClear
+                            onChange={(value) => {
+                                setTypeSelect(value);
                             }}
-                            withCredentials={false}
-                            showUploadList={true}
-                            accept="image/png, image/jpeg"
                         >
-                            <Button icon={<UploadOutlined />}>
-                                Chọn hình ảnh
-                            </Button>
-                        </Upload>
+                            {listType.map((role) => (
+                                <Option key={role.value} value={role.value}>
+                                    {role.name}
+                                </Option>
+                            ))}
+                        </Select>
                     </Form.Item>
-                    {!isAddOrFix && (
-                        <div className="w-full flex justify-center">
-                            {/*  eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                className="max-w-[200px] p-[10px]"
-                                src={`${process.env.HOST_NAME_API}/${imgFix}`}
-                                alt="img"
-                            />
-                        </div>
-                    )}
+                    <Form.Item
+                        label="Discount"
+                        name="discount"
+                        rules={[
+                            {
+                                required: true,
+                                message: "Không bỏ trống!!!",
+                            },
+                        ]}
+                    >
+                        <InputNumber
+                            min={1}
+                            max={typeSelect === "%" ? 100 : 1000000000000000}
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        label="Ngày bắt đầu"
+                        name="start"
+                        rules={[
+                            {
+                                required: true,
+                                message: "Không bỏ trống!!!",
+                            },
+                        ]}
+                    >
+                        <DatePicker />
+                    </Form.Item>
+                    <Form.Item
+                        label="Ngày kết thúc"
+                        name="end"
+                        rules={[
+                            {
+                                required: true,
+                                message: "Không bỏ trống!!!",
+                            },
+                        ]}
+                    >
+                        <DatePicker />
+                    </Form.Item>
 
                     <Form.Item wrapperCol={{ offset: 8, span: 16 }}>
                         <Button
@@ -291,7 +352,7 @@ const Category = () => {
 
             <Table
                 columns={columns}
-                dataSource={listCategoryShow}
+                dataSource={listVoucherShow}
                 pagination={{
                     defaultPageSize: 8,
                     showSizeChanger: true,
@@ -306,4 +367,4 @@ const Category = () => {
     );
 };
 
-export default Category;
+export default VoucherPage;
